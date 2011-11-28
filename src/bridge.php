@@ -1,15 +1,19 @@
 <?php
+include('TypesDB.php');
 /**
 * For now this is just a proof of concept!
 * Only the following collectd plugins are supported: cpu, vmem, memory, interface
 * Support for the collectd types.db will be included very soon
 **/
 
-// read data pushed by collectd - it´s posted, but not recognized by php as post data
+// read data pushed by collectd - it¬¥s posted, but not recognized by php as post data
 $fd = fopen('php://input','r');
 
 // debug bridge -> graphite stream
-//$logFile = fopen('/var/www/html/graphite.log', 'a');
+//$graphiteConn = fopen('/var/www/html/graphite.log', 'a');
+
+$typesDBObject = new CollectdTypesDBFactory('/usr/share/collectd/types.db');
+$typesDB = $typesDBObject->getTypesDB();
 
 // open connection to carbon
 $graphiteConn = fsockopen('192.168.100.199', 2003);
@@ -33,12 +37,10 @@ foreach ($data as $row) {
 		$pluginInstance = $row->plugin_instance;
 	}
 	
-	// FIXME: implement types.db parsing
-	if ($row->plugin == 'cpu' || $row->plugin == 'vmem' || $row->plugin == 'memory') {
-		fwrite($graphiteConn, 'collectd.'.$hostChunks[0].'.'.$row->plugin.'.'.$pluginInstance.'.'.$row->type.'.'.$row->type_instance.' '.$row->values[0].' '.$row->time.PHP_EOL);
-	}
-	if ($row->plugin == 'interface' && substr($row->type_instance, 0, 3) != 'vif') {
-		fwrite($graphiteConn, 'collectd.'.$hostChunks[0].'.'.$row->plugin.'.'.$pluginInstance.'.'.$row->type.'.'.$row->type_instance.'.rx'.' -'.$row->values[0].' '.$row->time.PHP_EOL);
-		fwrite($graphiteConn, 'collectd.'.$hostChunks[0].'.'.$row->plugin.'.'.$pluginInstance.'.'.$row->type.'.'.$row->type_instance.'.tx'.' '.$row->values[1].' '.$row->time.PHP_EOL);
+	$typeDefinition = $typesDB[$row->type];
+	
+	for ($i = 0; $i < count($typeDefinition); $i++) {
+		fwrite($graphiteConn, 'collectd.'.$hostChunks[0].'.'.$row->plugin.'.'.$pluginInstance.'.'.$row->type.'.'.$row->type_instance.'.'. $typeDefinition[$i]->getName().' '.$row->values[$i].' '.$row->time.PHP_EOL);
 	}
 }
+
