@@ -10,13 +10,13 @@ include('TypesDB.php');
 $fd = fopen('php://input','r');
 
 // debug bridge -> graphite stream
-$graphiteConn = fopen('/var/www/html/graphite.log', 'a');
+//$graphiteConn = fopen('/var/www/html/graphite.log', 'a');
 
 $typesDBObject = new CollectdTypesDBFactory('/usr/share/collectd/types.db');
 $typesDB = $typesDBObject->getTypesDB();
 
 // open connection to carbon
-//$graphiteConn = fsockopen('192.168.100.199', 2003);
+$graphiteConn = fsockopen('192.168.100.199', 2003);
 
 #HTTP_RAW_POST_DATA works - but its not possible to fwrite it
 #syslog(5,$HTTP_RAW_POST_DATA);
