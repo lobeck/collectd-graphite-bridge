@@ -6,17 +6,17 @@ include('TypesDB.php');
 * Support for the collectd types.db will be included very soon
 **/
 
-// read data pushed by collectd - it¬¥s posted, but not recognized by php as post data
+// read data pushed by collectd - it´s posted, but not recognized by php as post data
 $fd = fopen('php://input','r');
 
 // debug bridge -> graphite stream
-//$graphiteConn = fopen('/var/www/html/graphite.log', 'a');
+$graphiteConn = fopen('/var/www/html/graphite.log', 'a');
 
 $typesDBObject = new CollectdTypesDBFactory('/usr/share/collectd/types.db');
 $typesDB = $typesDBObject->getTypesDB();
 
 // open connection to carbon
-$graphiteConn = fsockopen('192.168.100.199', 2003);
+//$graphiteConn = fsockopen('192.168.100.199', 2003);
 
 #HTTP_RAW_POST_DATA works - but its not possible to fwrite it
 #syslog(5,$HTTP_RAW_POST_DATA);
@@ -30,17 +30,27 @@ foreach ($data as $row) {
 	// FIXME: detect ip addresses here - add more generic approach
 	$hostChunks = explode('.', $row->host);
 
-	// FIXME: plugin instance should not be included if not existent
-	$pluginInstance = 'default';
-
-	if ($row->plugin_instance != '') {
-		$pluginInstance = $row->plugin_instance;
-	}
-	
 	$typeDefinition = $typesDB[$row->type];
 	
+	$metricArray = array();
+	$metricArray[] = 'collectd';
+	$metricArray[] = $hostChunks[0];
+	$metricArray[] = $row->plugin;
+	if ($row->plugin_instance != '') {
+		$metricArray[] = $row->plugin_instance;
+	}
+	$metricArray[] = $row->type;
+	if ($row->type_instance != '') {
+		$metricArray[] = $row->type_instance;
+	}
+	
 	for ($i = 0; $i < count($typeDefinition); $i++) {
-		fwrite($graphiteConn, 'collectd.'.$hostChunks[0].'.'.$row->plugin.'.'.$pluginInstance.'.'.$row->type.'.'.$row->type_instance.'.'. $typeDefinition[$i]->getName().' '.$row->values[$i].' '.$row->time.PHP_EOL);
+		$metricArray['typeDataSource'] = $typeDefinition[$i]->getName();
+		$carbonDataString = array();
+		$carbonDataString[] = implode('.', $metricArray);
+		$carbonDataString[] = $row->values[$i];
+		$carbonDataString[] = $row->time;
+		
+		fwrite($graphiteConn, implode(' ', $carbonDataString).PHP_EOL);
 	}
 }
-
